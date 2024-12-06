@@ -78,26 +78,29 @@ def is_obstacle_visited(obstacle_pos, my_pos, obstacles):
         
     return False
 
-def could_be_trapped(pos, direction, width, height, proposedObstacle, allObstacles):
+def could_be_trapped(pos, direction, width, height, newObstacle):
     newDir = rotate(direction)
 
-    newObstaclePos = proposedObstacle[0]
-    newObstacles = []
+    prevObstacles = [ newObstacle ]
+    newObstaclePos = newObstacle[0]
     projectedPos = pos
-    while is_in_map(projectedPos, width, height) \
-        and not is_obstructed(projectedPos) \
-        and not newObstaclePos == projectedPos:
+    while is_in_map(projectedPos, width, height):
+        nextPos = look_forward(projectedPos, newDir)
 
-        next = look_forward(projectedPos, newDir)
-        if is_in_map(next, width, height) \
-            and (is_obstructed(next) or newObstaclePos == next):
-                if is_obstacle_visited(next, projectedPos, allObstacles):
-                    return True
-                else:
-                    remember_obstacle(next, projectedPos, newObstacles)
-                    return could_be_trapped(projectedPos, newDir, width, height, proposedObstacle, allObstacles + newObstacles)
+        # turn as long as we're running into an obstacle
+        # unless we've hit a loop
+        while is_in_map(nextPos, width, height) \
+            and (is_obstructed(nextPos) or newObstaclePos == nextPos):
+
+            if is_obstacle_visited(nextPos, projectedPos, prevObstacles):
+                return True
+            
+            remember_obstacle(nextPos, projectedPos, prevObstacles)
+            newDir = rotate(newDir)
+            nextPos = look_forward(projectedPos, newDir)
         
-        projectedPos = next
+        # move forward
+        projectedPos = nextPos
 
     return False
 
@@ -147,6 +150,7 @@ def main2():
     start_pos = position
     allObstacles = []
     fakeObstacles = set()
+    emptySet = set()
     while (is_in_map(position, width, height)):
         visited.add(position)
         nextPos = look_forward(position, direction)
@@ -158,11 +162,10 @@ def main2():
             nextPos = look_forward(position, direction)
 
         # test if a new obstacle could trap us here
-        proposedObstacles = []
-        remember_obstacle(nextPos, position, proposedObstacles)
+        newObstacle = make_obstacle(nextPos, position)
         if nextPos != start_pos \
             and nextPos not in fakeObstacles \
-            and could_be_trapped(position, direction, width, height, proposedObstacles[0], proposedObstacles):
+            and could_be_trapped(position, direction, width, height, newObstacle):
 
             fakeObstacles.add(nextPos)
         
