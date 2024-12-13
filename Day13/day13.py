@@ -82,21 +82,30 @@ def generate_combinations(A, B, N):
 
 def generate_large_combinations(A, B, N):
     combinations = []
+
+    maxA = N // A
+    for xA in range(maxA+1):
+        amountA = A * xA
+        remaining = N - amountA
+        
+        xB = remaining // B
+        if A * xA + B * xB == N:
+            combinations.append((xA, xB))
+
+    return combinations
+
+    #OLD
     # given A, B, and N, what combinations of A and B make N
     xA = 0
     xB = 0
-    while True:
+    maxA = N // A
+    maxB = N // B
+    for xA in range(maxA + 1):
         combo = 0
-        while True:
+        for xB in range(maxB + 1):
             combo = A * xA + B * xB
-            if A * xA + B * xB == N:
+            if combo == N:
                 combinations.append((xA, xB))
-            elif combo > N:
-                break
-            xB += 1
-        if combo > N:
-            break
-        xA += 1
 
     return combinations
 
@@ -131,24 +140,81 @@ def find_optimal_presses(config : ButtonConfiguration):
     return overlaps[smallestAIndex]
 
 def find_optimal_presses2(config : ButtonConfiguration):
-    xCombos = generate_large_combinations(config.AX, config.BX, config.Position[0])
-    yCombos = generate_large_combinations(config.AY, config.BY, config.Position[1])
-    if len(xCombos) == 0 or len(yCombos) == 0:
-        return None
+    AX = config.AX
+    AY = config.AY
+    BX = config.BX
+    BY = config.BY
 
-    overlaps = find_combo_overlaps(xCombos, yCombos)
-    if len(overlaps) == 0:
-        return None
+    NX = config.Position[0]
+    NY = config.Position[1]
 
-    smallestAIndex = -1
-    smallestA = 101
+    maxAX = NX // AX
+    maxAY = NY // AY
+    maxA = min(maxAX, maxAY)
+    for nA in range(maxA + 1):
+        amountAX = AX * nA
+        amountAY = AY * nA
+        remainingX = NX - amountAX
+        remainingY = NY - amountAY
+
+        nBX = remainingX // BX
+        nBY = remainingY // BY
+        amountBX = nBX * BX
+        amountBY = nBY * BY
+
+        if amountAX + amountBX == NX and amountAY + amountBY == NY and nBX == nBY:
+            return (nA, nBX)
+
+    return None
+
+def find_optimal_presses3(config : ButtonConfiguration):
+    AX = config.AX
+    AY = config.AY
+    BX = config.BX
+    BY = config.BY
+
+    NX = config.Position[0]
+    NY = config.Position[1]
+
+    lasti = None
+    lastj = None
+
+    maxA = min(NX // AX, NY // AY)
     i = 0
-    for overlap in overlaps:
-        if smallestA < overlap[0]:
-            smallestAIndex = i
-            smallestA = overlap[0]
-        i += 1
-    return overlaps[smallestAIndex]
+    while i <= maxA:
+        amountAX = AX * i
+        remaining = NX - amountAX
+        j = remaining // BX
+
+        amountBX = j * BX
+        remaining -=  amountBX
+
+        idelta = 1
+
+        if remaining == 0:
+            if lastj and lasti:
+                thisCost = calculate_cost((i,j))
+                lastCost = calculate_cost((lasti, lastj))
+                if thisCost < lastCost:
+                    lasti = i
+                    lastj = j
+                else:
+                    return (lasti,lastj)
+            else:
+                lasti = i
+                lastj = j
+        else:
+            idelta = remaining // AX
+            remaining -= idelta * AX
+            if remaining > 0:
+                idelta += 1
+
+        i += idelta
+    
+    if lasti and lastj:
+        return (lasti, lastj)
+    
+    return None
 
 def calculate_cost(presses):
     aPresses = presses[0]
@@ -176,7 +242,7 @@ def main2():
 
     totalCost = 0
     for config in configs:
-        bestpress = find_optimal_presses2(config)
+        bestpress = find_optimal_presses3(config)
         if bestpress == None:
             continue
         totalCost += calculate_cost(bestpress)
