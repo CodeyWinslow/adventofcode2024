@@ -4,7 +4,7 @@ import msvcrt
 import os
 
 data = []
-with open('test', 'r') as file:
+with open('input', 'r') as file:
     data = file.read()
 parts = data.split('\n\n')
 mapInput = list(line.strip() for line in (parts[0].split('\n')))
@@ -25,6 +25,16 @@ class Object:
     CanMove = False
     def __init__(self, pos):
         self.Position = pos
+
+    def __eq__(left, right):
+        if left is None or right is None:
+            return left is None and right is None
+        if not isinstance(left, Object) or not isinstance(right, Object):
+            return False
+        return left.Position == right.Position
+    
+    def __ne__(left, right):
+        return not left == right
 
 class MoveDirection(Enum):
     UP = 1
@@ -179,21 +189,47 @@ class Sim2:
                 return obj
         return None
     
+    def propose_moves(self, obj, move, proposed):
+        if not obj.CanMove:
+            return False
+        
+        next = Sim.get_next_position(obj.Position, move)
+        checkNext = next
+        if move == MoveDirection.RIGHT:
+            checkNext = (next[0] + 1, next[1])
+        nextObj = self.find_object(checkNext)
+        # potentially get a second obstacle on the right side if this object
+        nextObj2 = nextObj
+        if move == MoveDirection.UP or move == MoveDirection.DOWN:
+            checkNext = (next[0] + 1, next[1])
+            nextObj2 = self.find_object(checkNext)
+        
+        canmove = True
+        
+        newProposed = []
+        if nextObj != None:
+            canmove = self.propose_moves(nextObj, move, newProposed)
+
+        if canmove and nextObj2 and nextObj != nextObj2:
+            canmove = self.propose_moves(nextObj2, move, newProposed)
+
+
+        proposed += newProposed
+        if canmove:
+            proposed += [(obj, next)]
+        return canmove
+
     def try_move(self, pos, move):
         obj = self.find_object(pos)
         if obj:
-            if not obj.CanMove:
-                return False
-            
-            next = Sim.get_next_position(obj.Position, move)
-            checkNext = next
-            if move == MoveDirection.RIGHT:
-                checkNext = (next[0] + 1, next[1])
-
-            didMove = self.try_move(checkNext, move)
-            if didMove:
-                obj.Position = next
-            return didMove
+            proposedMoves = []
+            canMove = self.propose_moves(obj, move, proposedMoves)
+            if canMove:
+                for pm in proposedMoves:
+                    obj = pm[0]
+                    newpos = pm[1]
+                    obj.Position = newpos
+            return canMove
         return True
         
     def execute(self, move : MoveDirection):
@@ -228,8 +264,19 @@ class Sim2:
             else:
                 grid[y] = line[:x] + '##' + line[x+2:]
 
+        line1 = '  '
+        line2 = '  '
+        tens = list(i//10 for i in range(self.width))
+        ones = list(i%10 for i in range(self.width))
+        for i in tens:
+            line1 += str(i) if i > 0 else ' '
+        for i in ones:
+            line2 += str(i)
+        print(line1)
+        print(line2)
+        
         for y,line in enumerate(grid):
-            outStr = ''
+            outStr = ' ' * (2 - len(str(y))) + str(y)
             for x,char in enumerate(line):
                 if self.robot[0] == x and self.robot[1] == y:
                     outStr += '@'
@@ -279,4 +326,12 @@ def interactMain():
             move = move_from_key(lastch)
             sim.execute(move)
 
-interactMain()
+def main2():
+    sim = Sim2(mapInput)
+    sim.print()
+    print('...')
+    sim.execute_multi(generate_moves(movesInput))
+    sim.print()
+    print(sim.score())
+
+main2()
