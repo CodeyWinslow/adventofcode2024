@@ -14,12 +14,17 @@ class CellType(Enum):
     Empty = 1
     Wall = 2
     Box = 3
-    BoxLeft = 4
-    BoxRight = 5
 
 @dataclass
 class CellState:
     Type : CellType = CellType.Empty
+
+@dataclass
+class Object:
+    Position = None
+    CanMove = False
+    def __init__(self, pos):
+        self.Position = pos
 
 class MoveDirection(Enum):
     UP = 1
@@ -137,26 +142,17 @@ class Sim2:
         self.height = len(input)
         self.width = 0 if self.height == 0 else 2*len(input[0])
         self.robot = (0,0)
-        self.grid = []
+        self.objects = []
         for y,line in enumerate(input):
-            row = []
             for x,char in enumerate(line):
-                cell = CellState()
                 if char == '#':
-                    cell.Type = CellType.Wall
+                    self.objects.append(Object((2*x,y)))
                 elif char == 'O':
-                    cell.Type = CellType.BoxLeft
+                    box = Object((2*x,y))
+                    box.CanMove = True
+                    self.objects.append(box)
                 elif char == '@':
                     self.robot = (2*x,y)
-                row.append(cell)
-                
-                extraCell = CellState()
-                extraCell.Type = cell.Type
-                if extraCell.Type == CellType.BoxLeft:
-                    extraCell.Type = CellType.BoxRight
-                row.append(extraCell)
-
-            self.grid.append(row)
 
     def get_next_position(position, move):
         posx = position[0]
@@ -174,33 +170,37 @@ class Sim2:
 
         return (posx,posy)
 
-    def get_cell(self, pos)->CellState:
-        x = pos[0]
-        y = pos[1]
-        return self.grid[y][x]
-
+    def find_object(self, pos):
+        for obj in self.objects:
+            x = obj.Position[0]
+            y = obj.Position[1]
+            if y == pos[1] and \
+                (x == pos[0] or x == pos[0] - 1):
+                return obj
+        return None
+    
     def try_move(self, pos, move):
-        cell = self.get_cell(pos)
-        if cell.Type == CellType.Empty:
-            return True
-        elif cell.Type == CellType.Wall:
-            return False
-        
-        next = Sim.get_next_position(pos, move)
-        couldMove = self.try_move(next, move)
-        if couldMove:
-            nextCell = self.get_cell(next)
-            nextCell.Type = cell.Type
-        
-        return couldMove
+        obj = self.find_object(pos)
+        if obj:
+            if not obj.CanMove:
+                return False
+            
+            next = Sim.get_next_position(obj.Position, move)
+            checkNext = next
+            if move == MoveDirection.RIGHT:
+                checkNext = (next[0] + 1, next[1])
 
+            didMove = self.try_move(checkNext, move)
+            if didMove:
+                obj.Position = next
+            return didMove
+        return True
+        
     def execute(self, move : MoveDirection):
         curPos = self.robot
         nextPos = Sim.get_next_position(curPos, move)
         
         if self.try_move(nextPos, move):
-            cell = self.get_cell(nextPos)
-            cell.Type = CellType.Empty
             self.robot = nextPos
 
     def execute_multi(self, moves):
@@ -210,29 +210,31 @@ class Sim2:
     def score(self):
         score = 0
 
-        for y in range(self.height):
-            for x in range(self.width):
-                cell = self.get_cell((x,y))
-                if cell.Type == CellType.BoxLeft:
-                    score += (100 * y + x)
+        for obj in self.objects:
+            if obj.CanMove:
+                score += (100 * obj.Position[1] + obj.Position[0])
 
         return score
 
     def print(self):
-        for y,line in enumerate(self.grid):
+        grid = list('.' * self.width for i in range(self.height))
+
+        for obj in self.objects:
+            x = obj.Position[0]
+            y = obj.Position[1]
+            line = grid[y]
+            if obj.CanMove:
+                grid[y] = line[:x] + '[]' + line[x+2:]
+            else:
+                grid[y] = line[:x] + '##' + line[x+2:]
+
+        for y,line in enumerate(grid):
             outStr = ''
-            for x,cell in enumerate(line):
-                if cell.Type == CellType.BoxLeft:
-                    outStr += '['
-                elif cell.Type == CellType.BoxRight:
-                    outStr += ']'
-                elif cell.Type == CellType.Wall:
-                    outStr += '#'
+            for x,char in enumerate(line):
+                if self.robot[0] == x and self.robot[1] == y:
+                    outStr += '@'
                 else:
-                    if self.robot[0] == x and self.robot[1] == y:
-                        outStr += '@'
-                    else:
-                        outStr += '.'
+                    outStr += char
             print(outStr)
 
 
