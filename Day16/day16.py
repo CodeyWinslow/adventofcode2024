@@ -2,7 +2,7 @@ from enum import Enum
 from dataclasses import dataclass
 
 data = []
-with open('test', 'r') as file:
+with open('input', 'r') as file:
     data = list(line.strip() for line in file.readlines())
 
 HEIGHT = len(data)
@@ -17,7 +17,6 @@ class Direction(Enum):
 @dataclass
 class Walker:
     Position = None
-    PrevPosition = None
     Dir = None
     Score = 0
     Path = []
@@ -139,17 +138,14 @@ def enumerate_paths(startPos, startDir, paths, scores):
         leftWalker.Dir = turn_left(walker.Dir)
         leftWalker.Score = walker.Score + 1000
         leftWalker.Position = get_forward(walker.Position, leftWalker.Dir)
-        leftWalker.PrevPosition = walker.Position
         leftWalker.Path = walker.Path.copy()
 
         rightWalker = Walker()
         rightWalker.Dir = turn_right(walker.Dir)
         rightWalker.Score = walker.Score + 1000
         rightWalker.Position = get_forward(walker.Position, rightWalker.Dir)
-        rightWalker.PrevPosition = walker.Position
         rightWalker.Path = walker.Path.copy()
 
-        walker.PrevPosition = walker.Position
         walker.Position = get_forward(walker.Position, walker.Dir)
 
         queue.append(rightWalker)
