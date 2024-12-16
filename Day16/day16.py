@@ -20,6 +20,7 @@ class Walker:
     PrevPosition = None
     Dir = None
     Score = 0
+    Path = []
 
 def get_char(pos):
     return data[pos[1]][pos[0]]
@@ -72,42 +73,15 @@ def get_best_score(scores):
             lowest = score
     return lowest
 
-def get_num_best(scoreMap):
-    visited = set()
-    end = (WIDTH - 2, 1)
-    num = 1
-    visited.add(end)
-    queue = [end]
-    while len(queue) > 0:
-        curPos = queue.pop(0)
-        cur = scoreMap[curPos]
-        num += 1
+def generate_best_positions(paths, bestScore):
+    positions = set()
+    for path in paths:
+        score,pathList = path
+        if score == bestScore:
+            for pos in pathList:
+                positions.add(pos)
 
-        if cur[1] == None:
-            continue
-
-        for pos in cur[1]:
-            if pos not in visited and pos is not None:
-                visited.add(pos)
-                queue.append(pos)
-
-    print(visited)
-    return num
-
-def count_best(endPos, scoreMap, score, visited):
-    if endPos == None:
-        return score+1
-
-    if endPos in visited:
-        return score
-    
-    visited.add(endPos)
-    prevs = scoreMap[endPos][1]
-    score += 1
-    for prev in prevs:
-        score = count_best(prev, scoreMap, score, visited)
-
-    return score
+    return positions
 
 def print_best(pathSet):
     for y,line in enumerate(data):
@@ -119,10 +93,9 @@ def print_best(pathSet):
                 outStr += char
         print(outStr)
 
-def enumerate_paths(startPos, startDir, scores):
+def enumerate_paths(startPos, startDir, paths, scores):
     bestScorePositions = {}
 
-    stack = []
     queue = []
 
     walker = Walker()
@@ -138,36 +111,43 @@ def enumerate_paths(startPos, startDir, scores):
         if char == '#':
             continue
 
+        # if walker.Position in walker.Path:
+        #     continue
+
         # bail if we're somewhere where a better score has already been
         if walker.Position in bestScorePositions.keys():
-            if walker.Score > bestScorePositions[walker.Position][0]:
+            diff = walker.Score - bestScorePositions[walker.Position]
+            if diff > 1000:
                 continue
             
-            if bestScorePositions[walker.Position][0] == walker.Score:
-                bestScorePositions[walker.Position][1].append(walker.PrevPosition)
-            else:
-                bestScorePositions[walker.Position] = (walker.Score, [walker.PrevPosition])
+            if bestScorePositions[walker.Position] > walker.Score:
+                bestScorePositions[walker.Position] = walker.Score
         else:
-            bestScorePositions[walker.Position] = (walker.Score, [walker.PrevPosition])
+            bestScorePositions[walker.Position] = walker.Score
 
         if char == 'E':
-            scores.clear()
+            #scores.clear()
+            walker.Path.append(walker.Position)
+            paths.append((walker.Score,walker.Path))
             scores.append(walker.Score)
             continue
 
         walker.Score += 1
+        walker.Path.append(walker.Position)
 
         leftWalker = Walker()
         leftWalker.Dir = turn_left(walker.Dir)
         leftWalker.Score = walker.Score + 1000
         leftWalker.Position = get_forward(walker.Position, leftWalker.Dir)
         leftWalker.PrevPosition = walker.Position
+        leftWalker.Path = walker.Path.copy()
 
         rightWalker = Walker()
         rightWalker.Dir = turn_right(walker.Dir)
         rightWalker.Score = walker.Score + 1000
         rightWalker.Position = get_forward(walker.Position, rightWalker.Dir)
         rightWalker.PrevPosition = walker.Position
+        rightWalker.Path = walker.Path.copy()
 
         walker.PrevPosition = walker.Position
         walker.Position = get_forward(walker.Position, walker.Dir)
@@ -176,16 +156,15 @@ def enumerate_paths(startPos, startDir, scores):
         queue.append(walker)
         queue.append(leftWalker)
 
-    bestPaths = set()
-    print(count_best((WIDTH-2, 1), bestScorePositions, 0, bestPaths))
-    print_best(bestPaths)
 
 def main():
     start = (1, HEIGHT - 2)
     startDir = Direction.RIGHT
     scores = []
-    enumerate_paths(start, startDir, scores)
+    paths = []
+    enumerate_paths(start, startDir, paths, scores)
     lowest = get_best_score(scores)
     print(lowest)
+    print(len(generate_best_positions(paths, get_best_score(scores))))
 
 main()
